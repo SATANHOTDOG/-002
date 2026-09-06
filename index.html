@@ -329,17 +329,30 @@
                 .then(decodedText => {
                     statusDiv.style.display = 'none';
                     
-                    // 🔥 暴力升級：只允許 9 位數且 0 開頭的 SKU
-                    const skuMatch = decodedText.match(/(?:^|\D)(0\d{8})(?:\D|$)/);
+                    let targetSku = null;
                     
-                    if (skuMatch && skuMatch[1]) {
-                        const targetSku = skuMatch[1];
+                    // 🔥 網址絞肉機：三段式無情打撈
+                    // 招式一：優先對付正規的 /p/014422724 網址
+                    const pMatch = decodedText.match(/\/p\/(0\d{8})/i);
+                    // 招式二：針對 RPage=1B30014422724 這種混雜數字的追蹤妖孽
+                    const rMatch = decodedText.match(/RPage=.*?(0\d{8})(?=\D|$)/i);
+                    // 招式三：無腦暴力盲搜 (找 9 位數且 0 開頭，後面絕對不能接數字)
+                    const blindMatch = decodedText.match(/(0\d{8})(?=\D|$)/);
+
+                    if (pMatch && pMatch[1]) {
+                        targetSku = pMatch[1];
+                    } else if (rMatch && rMatch[1]) {
+                        targetSku = rMatch[1];
+                    } else if (blindMatch && blindMatch[1]) {
+                        targetSku = blindMatch[1];
+                    }
+
+                    if (targetSku) {
                         let searchBox = document.getElementById('searchInput');
                         searchBox.value = targetSku;
                         searchBox.dispatchEvent(new Event('input')); 
                     } else {
-                        // 如果抓出來不是 9 碼 SKU，就把原形畢露的字串印出來鞭屍
-                        alert("掃描成功，但這不是 SKU！\\n系統抓到的妖孽是：" + decodedText + "\\n\\n(可能是拍到旁邊的廠商條碼，請針對 QR Code 重新拍一次)");
+                        alert("掃描成功，但這不是 SKU！\\n系統抓到的妖孽是：" + decodedText + "\\n\\n(可能是拍到旁邊的廠商出貨條碼，請針對網址 QR Code 重新拍一次)");
                     }
                 })
                 .catch(err => {
