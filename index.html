@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>家具庫存快速查詢 - 鏡頭與照片連動版</title>
+<title>家具庫存快速查詢 - 終極閹割連動版</title>
 <style>
 :root {
 --primary-color: #2c3e50;
@@ -97,32 +97,29 @@ h1 { font-size: 1.5rem; color: var(--primary-color); margin-bottom: 5px; }
 </div>
 <script>
 const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTC18jsseZH3TerLqZMzzkJc1uPjh2IVTktcs4DxiuEmpA_NRAnzKrgzZbV43FQtN8b7-vMlvv1BFGF/pub?gid=0&single=true&output=csv';
-// 🔥 這是你那份照片試算表的偷渡直連網址
-const PHOTO_CSV_URL = 'https://docs.google.com/spreadsheets/d/1D4SAMkD6pmOCJEU98BrDxRMegq2jDKxWIMh0H4P11LI/pub?gid=0&single=true&output=csv';
+// 🔥 這才是能通往你照片庫的真理之門
+const PHOTO_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMKdYZt1n8QMbuH8YGn1_v8feQARaSxsPj8CMMD_OvYIxAbm4Yz4w6_ZQ5HL6agHG_xZ_BDfSrgLni/pub?output=csv';
 
 let products = [];
 let currentFiltered = [];
 let renderLimit = 100;
-let skusWithPhotos = new Set(); // 用來裝有照片的 SKU 的 VIP 包廂
+let skusWithPhotos = new Set(); 
 
 async function fetchProducts() {
     try {
-        // 雙線程同時扒走兩份試算表的皮
         const stockPromise = fetch(GOOGLE_SHEET_CSV_URL).then(res => res.text());
-        // 為了避免你哪天手滑把照片試算表關了導致整個系統崩潰，這邊上了防禦機制
         const photoPromise = fetch(PHOTO_CSV_URL).then(res => res.ok ? res.text() : "").catch(() => "");
 
         const [csvText, photoCsvText] = await Promise.all([stockPromise, photoPromise]);
 
-        // 處理照片名冊
         if (photoCsvText) {
             const photoLines = photoCsvText.split('\n');
             photoLines.forEach(line => {
                 const cols = parseCSVLine(line);
                 if (cols.length > 0) {
                     const rawSku = cols[0].trim();
-                    // 數位斷頭台：管你是 -1 還是 -10，我只取開頭的 9 個數字
-                    const match = rawSku.match(/^(0\d{8})/);
+                    // 更暴力的抓取：只要字串裡包含這 9 碼數字，管他前後加了什麼智障檔名，直接收編進名單
+                    const match = rawSku.match(/(0\d{8})/);
                     if (match) {
                         skusWithPhotos.add(match[1]);
                     }
@@ -251,7 +248,7 @@ const promoPeriod = activePromo.period;
 const category = getVal('商品分類') || '無分類';
 const vendor = getVal('廠商') || '';
 
-// 驗明正身：看看這傢伙有沒有在 VIP 名單裡
+// 驗明正身：看這破商品有沒有留遺照
 const hasPhoto = skusWithPhotos.has(sku);
 const photoBtnHtml = hasPhoto 
     ? `<a href="https://satanhotdog.github.io/hola-furniture-search/?q=${sku}" target="_blank" class="btn btn-img">圖片</a>`
@@ -312,7 +309,6 @@ document.getElementById('qrModal').style.display = 'flex';
 function closeModal() { document.getElementById('qrModal').style.display = 'none'; }
 fetchProducts();
 
-// 📸 終極妥協法：使用原生相機拍照解析
 const html5QrCode = new Html5Qrcode("hiddenReader");
 document.getElementById('cameraBtn').addEventListener('click', () => {
 document.getElementById('qrInput').click(); 
