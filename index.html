@@ -52,7 +52,7 @@
         .btn-img:hover { background: #d68910; }
         .btn-secondary { background: #e2e8f0; color: #334155; }
         .btn-secondary:hover { background: #cbd5e1; }
-        .stolen-info-container { margin-top: 10px; background: #fffcf5; border: 1px dashed #d35400; border-radius: 8px; padding: 12px; font-size: 0.9rem; color: #2c3e50; max-height: 250px; overflow-y: auto; line-height: 1.6; font-weight: 500; }
+        .stolen-info-container { margin-top: 10px; background: #fffcf5; border: 1px dashed #d35400; border-radius: 8px; padding: 12px; font-size: 0.9rem; color: #2c3e50; max-height: 300px; overflow-y: auto; line-height: 1.6; font-weight: 500; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: #fff; padding: 25px; border-radius: 16px; text-align: center; max-width: 360px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .modal-content h3 { color: var(--primary-color); margin-bottom: 10px; font-size: 1.4rem; }
@@ -311,7 +311,7 @@
         }
         function closeModal() { document.getElementById('qrModal').style.display = 'none'; }
 
-        // 🕷️ 數位走私爬蟲：跨海偷取官網資料
+        // 🕷️ 數位走私爬蟲：雙梯隊重裝破門版
         async function fetchDetails(sku) {
             const btn = document.getElementById(`btn-info-${sku}`);
             const infoDiv = document.getElementById(`info-${sku}`);
@@ -327,68 +327,74 @@
             
             if (infoDiv.dataset.loaded === "true") return;
 
-            infoDiv.innerHTML = '<div style="text-align: center; padding: 15px; color: #888;">🕵️‍♂️ 派遣傭兵跨海竊取資料中...<br><small>(請等個幾秒鐘)</small></div>';
+            infoDiv.innerHTML = '<div style="text-align: center; padding: 15px; color: #888;">🕵️‍♂️ 派遣傭兵強制破門中...<br><small>(官網防護較嚴，請等個幾秒鐘)</small></div>';
 
             try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.hola.com.tw/p/' + sku)}`;
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                
-                if (data.status && data.status.http_code === 404) {
-                    infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊</div>';
-                    infoDiv.dataset.loaded = "true";
-                    return;
+                const targetUrl = 'https://www.hola.com.tw/p/' + sku;
+                let html = '';
+
+                // 第一梯隊：corsproxy.io (繞 WAF 能力較強)
+                try {
+                    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+                    html = await res.text();
+                } catch (e) {}
+
+                // 如果被 Cloudflare 擋下或抓失敗，切換第二梯隊 AllOrigins 拿純文字
+                if (!html || html.includes('Cloudflare') || html.includes('Just a moment')) {
+                    const res2 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                    html = await res2.text();
                 }
 
-                const html = data.contents;
                 if (!html || html.includes('404 Not Found') || html.includes('找不到這個頁面')) {
-                    infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊</div>';
+                    infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊 (查無此頁)</div>';
                     infoDiv.dataset.loaded = "true";
                     return;
                 }
 
-                // 把抓回來的原始碼變成 DOM 物件
+                // 物理破壞：強迫所有區塊標籤斷行，避免字黏在一起
+                let cleanHtml = html.replace(/<br\s*[\/]?>/gi, '\n');
+                cleanHtml = cleanHtml.replace(/<\/(div|p|li|h[1-6]|tr|td)>/gi, '\n');
+
                 const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                const doc = parser.parseFromString(cleanHtml, 'text/html');
                 
-                // 無情斬殺所有會干擾排版的 script, style 跟多餘框架
-                doc.querySelectorAll('script, style, nav, footer, header').forEach(el => el.remove());
+                // 無情剔除雜訊
+                doc.querySelectorAll('script, style, nav, footer, header, noscript, iframe').forEach(el => el.remove());
                 
-                // 轉成純文字並把雜亂的換行符號壓扁
-                const pureText = doc.body.textContent.replace(/\n\s*\n/g, '\n');
+                const pureText = doc.body.textContent.replace(/[ \t]+/g, ' ').replace(/\n\s*\n/g, '\n');
                 
                 let features = "";
                 let specs = "";
                 
-                // 暴力解剖：切出「產品特點」和「商品規格」這兩塊肉
-                const fMatch = pureText.match(/(產品特點[\s\S]*?)(?=商品規格|注意事項|購物須知|更多說明|$)/);
+                // 更暴力的 Regex：只要看到關鍵字就無情截斷
+                const fMatch = pureText.match(/(?:產品特點|商品特色)\s*([\s\S]*?)(?=商品規格|規格介紹|商品介紹|注意事項|購物須知|更多說明|$)/);
                 if (fMatch && fMatch[1]) {
                     features = fMatch[1].trim().replace(/\n/g, '<br>');
                 }
 
-                const sMatch = pureText.match(/(商品規格[\s\S]*?)(?=注意事項|購物須知|更多說明|$)/);
+                const sMatch = pureText.match(/(?:商品規格|規格介紹)\s*([\s\S]*?)(?=商品介紹|注意事項|購物須知|更多說明|$)/);
                 if (sMatch && sMatch[1]) {
                     specs = sMatch[1].trim().replace(/\n/g, '<br>');
                 }
 
                 if (features || specs) {
                     let resultHtml = '';
-                    if (features) resultHtml += `<div style="margin-bottom: 15px;">${features}</div>`;
-                    if (specs) resultHtml += `<div>${specs}</div>`;
+                    if (features) resultHtml += `<div style="margin-bottom: 15px;"><strong style="color:var(--primary-color);">[產品特點]</strong><br>${features}</div>`;
+                    if (specs) resultHtml += `<div><strong style="color:var(--primary-color);">[商品規格]</strong><br>${specs}</div>`;
                     infoDiv.innerHTML = resultHtml;
                 } else {
-                    infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊</div>';
+                    infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊<br><small style="font-size:0.75rem; color:#999;">(遭防爬蟲攔截或此頁面為動態載入)</small></div>';
                 }
                 
                 infoDiv.dataset.loaded = "true";
             } catch (err) {
-                infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">沒資訊</div>';
+                infoDiv.innerHTML = '<div style="text-align: center; color: var(--accent-color); font-weight: bold;">連線失敗，請稍後重試</div>';
             }
         }
         
         fetchProducts();
 
-        // 📸 原生相機拍照解析功能 (網址絞肉機版)
+        // 📸 原生相機拍照解析功能
         const html5QrCode = new Html5Qrcode("hiddenReader");
         
         document.getElementById('cameraBtn').addEventListener('click', () => {
@@ -396,9 +402,8 @@
         });
 
         document.getElementById('qrInput').addEventListener('change', event => {
-            if (event.target.files.length == 0) {
-                return;
-            }
+            if (event.target.files.length == 0) return;
+            
             const file = event.target.files[0];
             const statusDiv = document.getElementById('scanStatus');
             statusDiv.style.display = 'block';
@@ -412,13 +417,9 @@
                     const rMatch = decodedText.match(/RPage=.*?(0\d{8})(?=\D|$)/i);
                     const blindMatch = decodedText.match(/(0\d{8})(?=\D|$)/);
 
-                    if (pMatch && pMatch[1]) {
-                        targetSku = pMatch[1];
-                    } else if (rMatch && rMatch[1]) {
-                        targetSku = rMatch[1];
-                    } else if (blindMatch && blindMatch[1]) {
-                        targetSku = blindMatch[1];
-                    }
+                    if (pMatch && pMatch[1]) targetSku = pMatch[1];
+                    else if (rMatch && rMatch[1]) targetSku = rMatch[1];
+                    else if (blindMatch && blindMatch[1]) targetSku = blindMatch[1];
 
                     if (targetSku) {
                         let searchBox = document.getElementById('searchInput');
