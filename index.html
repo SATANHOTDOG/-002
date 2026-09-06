@@ -328,22 +328,26 @@
             html5QrCode.scanFile(file, true)
                 .then(decodedText => {
                     statusDiv.style.display = 'none';
-                    const skuMatch = decodedText.match(/(\d{8,10})/);
+                    
+                    // 🔥 暴力升級：只允許 9 位數且 0 開頭的 SKU
+                    const skuMatch = decodedText.match(/(?:^|\D)(0\d{8})(?:\D|$)/);
+                    
                     if (skuMatch && skuMatch[1]) {
                         const targetSku = skuMatch[1];
                         let searchBox = document.getElementById('searchInput');
                         searchBox.value = targetSku;
                         searchBox.dispatchEvent(new Event('input')); 
                     } else {
-                        alert("解析成功，但裡面沒有正常的 SKU。\n掃到的內容：" + decodedText);
+                        // 如果抓出來不是 9 碼 SKU，就把原形畢露的字串印出來鞭屍
+                        alert("掃描成功，但這不是 SKU！\\n系統抓到的妖孽是：" + decodedText + "\\n\\n(可能是拍到旁邊的廠商條碼，請針對 QR Code 重新拍一次)");
                     }
                 })
                 .catch(err => {
                     statusDiv.style.display = 'none';
-                    alert("解析失敗！照片可能太糊、反光，或是你根本沒拍到 QR Code。請用相機的微距功能再試一次。");
+                    alert("解析失敗！照片可能太糊、反光，或是根本沒拍到 QR Code。請重新對焦再拍一次。");
                 })
                 .finally(() => {
-                    // 清空 input 檔案，確保下次拍同一張照片也能觸發 change 事件
+                    // 清空 input，確保下次選同一張照片或重拍也能觸發
                     event.target.value = ''; 
                 });
         });
